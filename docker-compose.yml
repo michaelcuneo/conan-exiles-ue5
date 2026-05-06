@@ -1,5 +1,6 @@
 services:
   conan-exiles:
+    image: michaelcuneo/conan-exiles-server:latest
     build:
       context: .
       dockerfile: Dockerfile
