@@ -78,21 +78,25 @@ services:
 ```
 
 Ports
+
 - 7777/UDP - Game
 - 7778/UDP - Raw UDP/Advertise
 - 27015/UDP - Steam query
 - 25575/TCP - RCON (optional)
 
 Saves and migration
+
 - Saves live under /home/steam/steamcmd/conan-dedicated/ConanSandbox/Saved in the container
 - On the host (with the example), that maps to /srv/docker-data/conan-exiles/steamcmd/conan-dedicated/ConanSandbox/Saved
 - UE5 typically uses game_0.db (plus -wal/-shm) as the active DB; older installs may use game.db
 - To migrate, stop the container and copy your old DB files into the Saved path, fix ownership to UID 1000, and restart
 
 Health
+
 - A basic healthcheck looks for the ConanExilesServer.exe process
 - Use `docker logs -f conan-exiles-server` for live logs
 
 Notes
+
 - Requires a Linux host with Docker Engine + host network support
 - Keep admin/server passwords secure and change defaults before exposing publicly
