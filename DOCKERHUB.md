@@ -100,3 +100,7 @@ Notes
 
 - Requires a Linux host with Docker Engine + host network support
 - Keep admin/server passwords secure and change defaults before exposing publicly
+
+---
+
+Last updated: 2026-05-06
