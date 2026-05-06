@@ -1,0 +1,41 @@
+services:
+  conan-exiles:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conan-exiles-server
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - CONAN_SERVER_PORT=${CONAN_SERVER_PORT:-7777}
+      - CONAN_QUERY_PORT=${CONAN_QUERY_PORT:-27015}
+      - CONAN_RAW_UDP_PORT=${CONAN_RAW_UDP_PORT:-7778}
+      - CONAN_SERVER_NAME=${CONAN_SERVER_NAME:-Conan Exiles Server}
+      - CONAN_MAX_PLAYERS=${CONAN_MAX_PLAYERS:-70}
+      - CONAN_ADMIN_PASSWORD=${CONAN_ADMIN_PASSWORD:-changeme}
+      - CONAN_SERVER_PASSWORD=${CONAN_SERVER_PASSWORD:-}
+      - CONAN_RCON_ENABLED=${CONAN_RCON_ENABLED:-false}
+      - CONAN_RCON_PORT=${CONAN_RCON_PORT:-25575}
+      - CONAN_RCON_PASSWORD=${CONAN_RCON_PASSWORD:-}
+      - CONAN_REGION=${CONAN_REGION:-0}
+      - CONAN_EXTRA_ARGS=${CONAN_EXTRA_ARGS:-}
+      - CONAN_UPDATE_ON_START=${CONAN_UPDATE_ON_START:-true}
+      - CONAN_VALIDATE_ON_START=${CONAN_VALIDATE_ON_START:-false}
+      - STEAMCMD_LOGIN=${STEAMCMD_LOGIN:-anonymous}
+      - STEAMCMD_PASSWORD=${STEAMCMD_PASSWORD:-}
+    volumes:
+      - type: bind
+        source: ${CONAN_DATA_ROOT:-/srv/docker-data/conan-exiles}/steamcmd
+        target: /home/steam/steamcmd
+      - type: bind
+        source: ${CONAN_DATA_ROOT:-/srv/docker-data/conan-exiles}/wine-prefix
+        target: /opt/conan-exiles/.wine
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f ConanExilesServer.exe >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.example.description=Conan Exiles UE5 Server"
+      - "com.example.version=1.0"

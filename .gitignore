@@ -1,0 +1,37 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors/IDEs
+.vscode/
+.idea/
+*.code-workspace
+
+# Python / Jupyter (not used, but harmless)
+__pycache__/
+.ipynb_checkpoints/
+
+# Node (not used, but harmless)
+node_modules/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs & backups
+*.log
+logs/
+*.bak
+*.old
+*.tmp
+
+# Docker artifacts
+*.tar
+
+# Local data (host paths live outside repo; keep repo clean)
+# Note: Game data persists under ${CONAN_DATA_ROOT} on the host, not here.
+
+# Misc
+*.swp
+*.swo
