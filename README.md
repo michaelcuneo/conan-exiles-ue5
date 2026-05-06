@@ -121,6 +121,43 @@ If your server is behind OPNsense/pfSense (or another edge firewall), configure 
 
 RCON values are applied into `ServerSettings.ini` by `entrypoint.sh`. Use `CONAN_EXTRA_ARGS` for advanced launch flags.
 
+### NAT/Advertising behind OPNsense/pfSense (MULTIHOME)
+
+If the server runs but doesn’t appear in the browser or favorites, bind it to the correct LAN interface and forward ports properly:
+
+- Set `CONAN_EXTRA_ARGS` to include `-MULTIHOME=<LAN_IP>` of the Docker host (the destination of your OPNsense port forwards). Example:
+  ```env
+  CONAN_EXTRA_ARGS=-MULTIHOME=192.168.1.10
+  ```
+- In OPNsense/pfSense, create UDP port forwards from WAN to the Docker host for 7777, 7778, and 27015 (and TCP 25575 if RCON enabled). Ensure matching firewall rules are created.
+- If testing from inside LAN using public IP, enable NAT reflection/hairpin on the firewall or test from a true external network.
+
+Verify on the Docker host:
+
+```bash
+ss -lupn | grep -E ':7777|:7778|:27015'
+```
+
+You should see listeners on those ports (commonly 0.0.0.0:PORT or bound to your LAN IP when MULTIHOME is set).
+
+### Auto-configured Engine.ini (Steam listing)
+
+On first start (and every boot), this stack ensures the following in:
+`${CONAN_DATA_ROOT}/steamcmd/conan-dedicated/ConanSandbox/Saved/Config/WindowsServer/Engine.ini`
+
+- `[OnlineSubsystem]`
+  - `DefaultPlatformService=Steam`
+  - `bUseBuildIdOverride=True`
+  - `BuildIdOverride` (defaults to `812257115`, override with env `CONAN_BUILD_ID_OVERRIDE`)
+  - `ServerName` (from `CONAN_SERVER_NAME`)
+- `[OnlineSubsystemSteam]`
+  - `bEnabled=true`
+  - `SteamDevAppId=440900`
+  - `ServerQueryPort` (from `CONAN_QUERY_PORT`)
+  - `ServerPort` (from `CONAN_SERVER_PORT`)
+
+This mirrors the behavior many legacy images required for Steam server browser visibility so you don’t need to edit Engine.ini manually.
+
 ## Data Persistence
 
 This stack uses bind mounts so Portainer and host backup jobs can back up directly from disk.

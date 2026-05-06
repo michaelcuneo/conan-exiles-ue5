@@ -9,6 +9,7 @@ SERVER_DIR="${STEAMCMD_DIR}/conan-dedicated"
 SERVER_EXE=""
 CONFIG_DIR="${SERVER_DIR}/ConanSandbox/Saved/Config/WindowsServer"
 SETTINGS_FILE="${CONFIG_DIR}/ServerSettings.ini"
+ENGINE_FILE="${CONFIG_DIR}/Engine.ini"
 XVFB_PID=""
 SERVER_PID=""
 
@@ -51,6 +52,62 @@ EOF
     set_ini_value "RconEnabled" "${CONAN_RCON_ENABLED:-false}"
     set_ini_value "RconPort" "${CONAN_RCON_PORT:-25575}"
     set_ini_value "RconPassword" "${CONAN_RCON_PASSWORD:-}"
+}
+
+# Ensure Engine.ini contains Steam/advertising basics so servers show up without manual edits
+ensure_engine_ini() {
+    mkdir -p "${CONFIG_DIR}"
+    touch "${ENGINE_FILE}"
+
+    local tmp
+    tmp="${ENGINE_FILE}.tmp.$$"
+
+    ensure_section() {
+        local section="$1"
+        if ! grep -qiE "^\\[${section}\\]$" "${ENGINE_FILE}"; then
+            printf "\n[%s]\n" "${section}" >> "${ENGINE_FILE}"
+        fi
+    }
+
+    set_kv_in_section() {
+        local section="$1" key="$2" value="$3"
+        ensure_section "${section}"
+        awk -v sec="${section}" -v key="${key}" -v val="${value}" '
+            BEGIN{ins=0}
+            /^[[]/{ins = (tolower($0)=="[" tolower(sec) "]")}
+            {
+                if (ins && tolower($0) ~ "^" tolower(key) "=") { print key"="val; next }
+                print
+            }
+        ' "${ENGINE_FILE}" > "${tmp}"
+        # If key was not present, append it at end of section (by adding again)
+        if ! awk -v sec="${section}" -v key="${key}" 'BEGIN{ins=0;found=0}
+            /^[[]/{ins = ($0=="["sec"]")}
+            { if (ins && $0 ~ "^"key"=") found=1 }
+            END{exit(found?0:1)}' "${ENGINE_FILE}"; then
+            # append key at end
+            printf "%s=%s\n" "${key}" "${value}" >> "${tmp}"
+        fi
+        mv -f "${tmp}" "${ENGINE_FILE}"
+    }
+
+    # Values (allow override via env if provided)
+    local build_id="${CONAN_BUILD_ID_OVERRIDE:-812257115}"
+    local server_name_ini="${CONAN_SERVER_NAME:-Conan Exiles Server}"
+    local qport="${CONAN_QUERY_PORT:-27015}"
+    local gport="${CONAN_SERVER_PORT:-7777}"
+
+    # [OnlineSubsystem]
+    set_kv_in_section "OnlineSubsystem" "bUseBuildIdOverride" "True"
+    set_kv_in_section "OnlineSubsystem" "BuildIdOverride" "${build_id}"
+    set_kv_in_section "OnlineSubsystem" "ServerName" "${server_name_ini}"
+    set_kv_in_section "OnlineSubsystem" "DefaultPlatformService" "Steam"
+
+    # [OnlineSubsystemSteam]
+    set_kv_in_section "OnlineSubsystemSteam" "bEnabled" "true"
+    set_kv_in_section "OnlineSubsystemSteam" "SteamDevAppId" "440900"
+    set_kv_in_section "OnlineSubsystemSteam" "ServerQueryPort" "${qport}"
+    set_kv_in_section "OnlineSubsystemSteam" "ServerPort" "${gport}"
 }
 
 cleanup() {
@@ -168,6 +225,7 @@ if [[ ! -d "${WINEPREFIX}/drive_c" ]]; then
 fi
 
 initialize_server_settings
+ensure_engine_ini
 
 SERVER_ARGS=("-log" "-Unattended")
 
