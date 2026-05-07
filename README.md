@@ -147,8 +147,7 @@ On first start (and every boot), this stack ensures the following in:
 
 - `[OnlineSubsystem]`
   - `DefaultPlatformService=Steam`
-  - `bUseBuildIdOverride=True`
-  - `BuildIdOverride` (defaults to `812257115`, override with env `CONAN_BUILD_ID_OVERRIDE`)
+  - `bUseBuildIdOverride`/`BuildIdOverride` (only set if env `CONAN_BUILD_ID_OVERRIDE` is provided; otherwise disabled)
   - `ServerName` (from `CONAN_SERVER_NAME`)
 - `[OnlineSubsystemSteam]`
   - `bEnabled=true`

@@ -92,14 +92,19 @@ ensure_engine_ini() {
     }
 
     # Values (allow override via env if provided)
-    local build_id="${CONAN_BUILD_ID_OVERRIDE:-812257115}"
+    local build_id="${CONAN_BUILD_ID_OVERRIDE:-}"
     local server_name_ini="${CONAN_SERVER_NAME:-Conan Exiles Server}"
     local qport="${CONAN_QUERY_PORT:-27015}"
     local gport="${CONAN_SERVER_PORT:-7777}"
 
     # [OnlineSubsystem]
-    set_kv_in_section "OnlineSubsystem" "bUseBuildIdOverride" "True"
-    set_kv_in_section "OnlineSubsystem" "BuildIdOverride" "${build_id}"
+    if [[ -n "${build_id}" ]]; then
+        set_kv_in_section "OnlineSubsystem" "bUseBuildIdOverride" "True"
+        set_kv_in_section "OnlineSubsystem" "BuildIdOverride" "${build_id}"
+    else
+        set_kv_in_section "OnlineSubsystem" "bUseBuildIdOverride" "False"
+        set_kv_in_section "OnlineSubsystem" "BuildIdOverride" "0"
+    fi
     set_kv_in_section "OnlineSubsystem" "ServerName" "${server_name_ini}"
     set_kv_in_section "OnlineSubsystem" "DefaultPlatformService" "Steam"
 
