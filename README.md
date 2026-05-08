@@ -1,11 +1,11 @@
-# Conan Exiles Dedicated Server (Wine + SteamCMD + Docker)
+# Conan Exiles Dedicated Server (Linux Native + SteamCMD + Docker)
 
-Complete Docker setup for Conan Exiles dedicated server on Linux hosts using Wine and SteamCMD, with Portainer-friendly bind mounts and host networking.
+Complete Docker setup for Conan Exiles dedicated server on Linux hosts using native Linux binaries and SteamCMD, with Portainer-friendly bind mounts and host networking.
 
 ## Features
 
-- **SteamCMD install/update** on startup (Windows dedicated server build)
-- **Wine runtime** with persistent Wine prefix
+- **SteamCMD install/update** on startup (Linux dedicated server build)
+- **Native Linux runtime** (no Wine required)
 - **Host networking** for game traffic and direct port control
 - **Portainer-friendly bind mounts** under one backup root
 - **First-run config generation** for `ServerSettings.ini`
@@ -29,7 +29,7 @@ docker compose build
 ### 2) Create host data directories
 
 ```bash
-mkdir -p /srv/docker-data/conan-exiles/{steamcmd,wine-prefix}
+mkdir -p /srv/docker-data/conan-exiles/steamcmd
 chown -R 1000:1000 /srv/docker-data/conan-exiles
 ```
 
@@ -62,6 +62,14 @@ docker compose up -d
 docker compose logs -f conan-exiles
 ```
 
+### Universal setup checklist (works across most networks)
+
+- Ensure host paths exist and are writable by UID 1000 (done in steps above)
+- Open/forward these UDP ports to the Docker host: 7777, 7778, 27015
+- If testing from LAN to your own public IP, enable NAT reflection/hairpin on your firewall (e.g., OPNsense/pfSense)
+- If you’re behind multi-NIC/VPN or complex NAT, set a bind IP via MULTIHOME (see below)
+- If Steam/Funcom services are having outages, use the outage fallback (-NOSTEAM) to play locally/direct (see below)
+
 ### 5) Stop the server
 
 ```bash
@@ -87,6 +95,9 @@ environment:
   - CONAN_RCON_ENABLED=false
   - CONAN_RCON_PORT=25575
   - CONAN_RCON_PASSWORD=
+  - CONAN_DISABLE_BATTLEYE=true
+  - CONAN_FORCE_NOSTEAM=false
+  - CONAN_STEAM_APP_ID=443030
   - CONAN_UPDATE_ON_START=true
   - CONAN_VALIDATE_ON_START=false
   - STEAMCMD_LOGIN=anonymous
@@ -121,6 +132,31 @@ If your server is behind OPNsense/pfSense (or another edge firewall), configure 
 
 RCON values are applied into `ServerSettings.ini` by `entrypoint.sh`. Use `CONAN_EXTRA_ARGS` for advanced launch flags.
 
+### "Authentication Failed" when joining
+
+If the server lists correctly but clients fail to join with **Authentication Failed**, common causes are BattlEye and transient Steam backend issues.
+
+- This image now defaults to `CONAN_DISABLE_BATTLEYE=true` (adds `-NoBattlEye`).
+- If your existing `.env` was created earlier, add/update:
+
+```env
+CONAN_DISABLE_BATTLEYE=true
+```
+
+- Recreate the container:
+
+```bash
+docker compose up -d --force-recreate
+```
+
+If Steam backend is down or unstable, temporarily set:
+
+```env
+CONAN_FORCE_NOSTEAM=true
+```
+
+This enables direct-connect mode and bypasses Steam auth. For normal Steam listing/connectivity, keep `CONAN_FORCE_NOSTEAM=false`.
+
 ### NAT/Advertising behind OPNsense/pfSense (MULTIHOME)
 
 If the server runs but doesn’t appear in the browser or favorites, bind it to the correct LAN interface and forward ports properly:
@@ -140,10 +176,23 @@ ss -lupn | grep -E ':7777|:7778|:27015'
 
 You should see listeners on those ports (commonly 0.0.0.0:PORT or bound to your LAN IP when MULTIHOME is set).
 
+### Outage fallback (no Steam backend)
+
+If Steam backend services are flaky and the server won’t list or Steam API won’t initialize, you can still play by disabling Steam for the session:
+
+1. In `.env` set: `CONAN_EXTRA_ARGS=-NOSTEAM`
+2. Restart: `docker compose up -d --force-recreate`
+3. Connect directly by IP/port (it will not appear in the public list):
+
+- LAN: `192.168.1.x:7777`
+- WAN: `your_public_ip:7777` (requires port forwards)
+
+4. When services recover, clear `CONAN_EXTRA_ARGS` and restart to restore Steam listing.
+
 ### Auto-configured Engine.ini (Steam listing)
 
 On first start (and every boot), this stack ensures the following in:
-`${CONAN_DATA_ROOT}/steamcmd/conan-dedicated/ConanSandbox/Saved/Config/WindowsServer/Engine.ini`
+`${CONAN_DATA_ROOT}/steamcmd/conan-dedicated/ConanSandbox/Saved/Config/LinuxServer/Engine.ini`
 
 - `[OnlineSubsystem]`
   - `DefaultPlatformService=Steam`
@@ -151,11 +200,37 @@ On first start (and every boot), this stack ensures the following in:
   - `ServerName` (from `CONAN_SERVER_NAME`)
 - `[OnlineSubsystemSteam]`
   - `bEnabled=true`
-  - `SteamDevAppId=440900`
+  - `SteamDevAppId` (from `CONAN_STEAM_APP_ID`, defaults to `443030`)
   - `ServerQueryPort` (from `CONAN_QUERY_PORT`)
   - `ServerPort` (from `CONAN_SERVER_PORT`)
 
 This mirrors the behavior many legacy images required for Steam server browser visibility so you don’t need to edit Engine.ini manually.
+
+## Validate server files (SteamCMD)
+
+If you suspect missing/corrupt files, run a one-off validation against the install directory (bind-mounted):
+
+```bash
+docker compose stop conan-exiles
+docker compose run --rm --no-deps --entrypoint /home/steam/steamcmd/steamcmd.sh conan-exiles \
+  +@sSteamCmdForcePlatformType linux \
+  +force_install_dir /home/steam/steamcmd/conan-dedicated \
+  +login anonymous \
+  +app_update 443030 validate \
+  +quit
+docker compose up -d
+```
+
+## Troubleshooting (works across setups)
+
+- Confirm listeners: `ss -lupn | grep -E ':7777|:7778|:27015'`
+- Direct connect (bypasses listing): LAN `192.168.1.x:7777`, WAN `your_public_ip:7777`
+- If joining from LAN to your public IP, enable NAT reflection/hairpin
+- If Steam API fails to initialize, try outage fallback (`-NOSTEAM`) until services recover
+- If clients get **Authentication Failed**, set `CONAN_DISABLE_BATTLEYE=true` and `CONAN_FORCE_NOSTEAM=true`, then recreate
+- Validate files (section above)
+- No mods? Ensure `ConanSandbox/Mods/modlist.txt` doesn’t exist or matches clients
+- Password issues: ensure `ServerPassword=` line is present and empty in `ServerSettings.ini`
 
 ## Data Persistence
 
@@ -164,7 +239,6 @@ This stack uses bind mounts so Portainer and host backup jobs can back up direct
 Set `CONAN_DATA_ROOT` (default: `/srv/docker-data/conan-exiles`) and the stack maps:
 
 - `${CONAN_DATA_ROOT}/steamcmd` - SteamCMD + server installation files
-- `${CONAN_DATA_ROOT}/wine-prefix` - Wine prefix
 
 `ConanSandbox/Saved` (including `ServerSettings.ini`) is persisted under:
 
@@ -173,7 +247,7 @@ Set `CONAN_DATA_ROOT` (default: `/srv/docker-data/conan-exiles`) and the stack m
 Create paths on the Docker host before deployment:
 
 ```bash
-mkdir -p /srv/docker-data/conan-exiles/{steamcmd,wine-prefix}
+mkdir -p /srv/docker-data/conan-exiles/steamcmd
 chown -R 1000:1000 /srv/docker-data/conan-exiles
 ```
 
@@ -238,11 +312,11 @@ Notes
 
 Generated/managed config file:
 
-`/home/steam/steamcmd/conan-dedicated/ConanSandbox/Saved/Config/WindowsServer/ServerSettings.ini`
+`/home/steam/steamcmd/conan-dedicated/ConanSandbox/Saved/Config/LinuxServer/ServerSettings.ini`
 
 When using default bind mounts, that maps to:
 
-`${CONAN_DATA_ROOT}/steamcmd/conan-dedicated/ConanSandbox/Saved/Config/WindowsServer/ServerSettings.ini`
+`${CONAN_DATA_ROOT}/steamcmd/conan-dedicated/ConanSandbox/Saved/Config/LinuxServer/ServerSettings.ini`
 
 ### Performance Tuning
 
@@ -334,7 +408,7 @@ This Docker configuration is provided as-is. Conan Exiles is owned by Funcom.
 
 ## Included Files
 
-- `Dockerfile` - Ubuntu 24.04 + Wine runtime image
+- `Dockerfile` - Ubuntu 24.04 + native Linux runtime image
 - `docker-compose.yml` - host networking + bind mounts
-- `entrypoint.sh` - SteamCMD update, first-run config, Wine launch
+- `entrypoint.sh` - SteamCMD update, first-run config, native Linux launch
 - `.env.example` - complete environment template

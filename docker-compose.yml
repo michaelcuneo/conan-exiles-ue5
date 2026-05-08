@@ -18,6 +18,10 @@ services:
       - CONAN_RCON_ENABLED=${CONAN_RCON_ENABLED:-false}
       - CONAN_RCON_PORT=${CONAN_RCON_PORT:-25575}
       - CONAN_RCON_PASSWORD=${CONAN_RCON_PASSWORD:-}
+      - CONAN_DISABLE_BATTLEYE=${CONAN_DISABLE_BATTLEYE:-true}
+      - CONAN_FORCE_NOSTEAM=${CONAN_FORCE_NOSTEAM:-false}
+      - CONAN_STEAM_APP_ID=${CONAN_STEAM_APP_ID:-443030}
+      - CONAN_STEAMCMD_PLATFORM=${CONAN_STEAMCMD_PLATFORM:-linux}
       - CONAN_REGION=${CONAN_REGION:-0}
       - CONAN_EXTRA_ARGS=${CONAN_EXTRA_ARGS:-}
       - CONAN_UPDATE_ON_START=${CONAN_UPDATE_ON_START:-true}
@@ -28,11 +32,8 @@ services:
       - type: bind
         source: ${CONAN_DATA_ROOT:-/srv/docker-data/conan-exiles}/steamcmd
         target: /home/steam/steamcmd
-      - type: bind
-        source: ${CONAN_DATA_ROOT:-/srv/docker-data/conan-exiles}/wine-prefix
-        target: /opt/conan-exiles/.wine
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f ConanExilesServer.exe >/dev/null"]
+      test: ["CMD-SHELL", "pgrep -f ConanSandboxServer >/dev/null"]
       interval: 30s
       timeout: 10s
       retries: 3

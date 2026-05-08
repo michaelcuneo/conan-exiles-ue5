@@ -1,17 +1,17 @@
 # michaelcuneobusiness/conan-exiles-server
 
-Conan Exiles Dedicated Server for Linux using Wine + SteamCMD, packaged for Docker.
+Conan Exiles Dedicated Server for Linux using native Linux binaries + SteamCMD, packaged for Docker.
 
 - Image: docker.io/michaelcuneobusiness/conan-exiles-server:latest
 - Host networking (UDP 7777, 7778, 27015; optional TCP 25575 for RCON)
-- Persistent data via bind mounts (SteamCMD install + Wine prefix)
+- Persistent data via bind mounts (SteamCMD install)
 - First-run config generation and env-driven settings
 
 Quick start (docker run)
 
 ```bash
 # Create host data dirs
-sudo mkdir -p /srv/docker-data/conan-exiles/{steamcmd,wine-prefix}
+sudo mkdir -p /srv/docker-data/conan-exiles/steamcmd
 sudo chown -R 1000:1000 /srv/docker-data/conan-exiles
 
 # Start the server (host networking)
@@ -29,13 +29,16 @@ sudo docker run -d --name conan-exiles-server \
   -e CONAN_RCON_ENABLED=false \
   -e CONAN_RCON_PORT=25575 \
   -e CONAN_RCON_PASSWORD= \
+  -e CONAN_DISABLE_BATTLEYE=true \
+  -e CONAN_FORCE_NOSTEAM=false \
+  -e CONAN_STEAM_APP_ID=443030 \
+  -e CONAN_STEAMCMD_PLATFORM=linux \
   -e CONAN_UPDATE_ON_START=true \
   -e CONAN_VALIDATE_ON_START=false \
   -e STEAMCMD_LOGIN=anonymous \
   -e STEAMCMD_PASSWORD= \
   -e CONAN_EXTRA_ARGS= \
   -v /srv/docker-data/conan-exiles/steamcmd:/home/steam/steamcmd \
-  -v /srv/docker-data/conan-exiles/wine-prefix:/opt/conan-exiles/.wine \
   docker.io/michaelcuneobusiness/conan-exiles-server:latest
 ```
 
@@ -63,6 +66,10 @@ services:
       - CONAN_RCON_ENABLED=false
       - CONAN_RCON_PORT=25575
       - CONAN_RCON_PASSWORD=
+      - CONAN_DISABLE_BATTLEYE=true
+      - CONAN_FORCE_NOSTEAM=false
+      - CONAN_STEAM_APP_ID=443030
+      - CONAN_STEAMCMD_PLATFORM=linux
       - CONAN_UPDATE_ON_START=true
       - CONAN_VALIDATE_ON_START=false
       - STEAMCMD_LOGIN=anonymous
@@ -72,9 +79,6 @@ services:
       - type: bind
         source: /srv/docker-data/conan-exiles/steamcmd
         target: /home/steam/steamcmd
-      - type: bind
-        source: /srv/docker-data/conan-exiles/wine-prefix
-        target: /opt/conan-exiles/.wine
 ```
 
 Ports
@@ -93,13 +97,15 @@ Saves and migration
 
 Health
 
-- A basic healthcheck looks for the ConanExilesServer.exe process
+- A basic healthcheck looks for the ConanSandboxServer process
 - Use `docker logs -f conan-exiles-server` for live logs
 
 Notes
 
 - Requires a Linux host with Docker Engine + host network support
 - Keep admin/server passwords secure and change defaults before exposing publicly
+- If players see "Authentication Failed" but server is visible, keep `CONAN_DISABLE_BATTLEYE=true`
+- If Steam API won’t initialize, temporarily set `CONAN_FORCE_NOSTEAM=true` for reliable direct-IP joins
 
 ---
 
